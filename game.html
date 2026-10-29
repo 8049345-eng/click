@@ -5,213 +5,268 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>click</title>
+
 <style>
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}
 
 body {
-  margin: 0;
-  min-height: 100vh;
-  background: black;
-  color: white;
-  font-family: Arial, sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    margin: 0;
+    min-height: 100vh;
+    background: black;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
 }
 
 #game, #breakScreen, #winScreen, #cheatScreen {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 25px;
-  text-align: center;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 25px;
+    text-align: center;
+    padding: 20px;
 }
 
-#game { display: flex; }
+#game {
+    display: flex;
+}
 
-h1 { margin: 0; font-size: 72px; }
+h1 {
+    margin: 0;
+    font-size: 72px;
+}
 
-#saveMessage { color: #aaa; }
+#saveMessage {
+    color: #aaa;
+    margin: 0;
+}
 
 #clickButton {
-  width: 190px;
-  height: 190px;
-  border: none;
-  border-radius: 50%;
-  background: red;
-  cursor: pointer;
-  box-shadow: 0 10px #790000;
+    width: 190px;
+    height: 190px;
+    border: none;
+    border-radius: 50%;
+    background: red;
+    cursor: pointer;
+    box-shadow: 0 10px #790000;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
 }
 
 #clickButton:active {
-  transform: translateY(8px);
-  box-shadow: 0 2px #790000;
+    transform: translateY(8px);
+    box-shadow: 0 2px #790000;
 }
 
 #counter {
-  position: fixed;
-  bottom: 25px;
-  font-size: 24px;
-  font-weight: bold;
+    position: fixed;
+    bottom: 25px;
+    left: 0;
+    right: 0;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
 }
 
 .message {
-  font-size: clamp(28px, 5vw, 48px);
-  font-weight: bold;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: bold;
 }
 
 #readyButton {
-  border: none;
-  border-radius: 8px;
-  padding: 16px 24px;
-  background: white;
-  color: black;
-  font-size: 20px;
-  font-weight: bold;
-  cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 16px 24px;
+    background: white;
+    color: black;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-#cheatScreen { color: red; }
-#cheatScreen h2 { font-size: clamp(45px, 10vw, 90px); margin: 0; }
+#cheatScreen {
+    color: red;
+}
+
+#cheatScreen h2 {
+    font-size: clamp(45px, 10vw, 100px);
+    margin: 0;
+    text-shadow: 0 0 25px red;
+}
 </style>
 </head>
+
 <body>
 
 <main id="game">
-  <h1>click</h1>
-  <p id="saveMessage">the button remembers your clicks</p>
-  <button id="clickButton" aria-label="click"></button>
-  <div id="counter">clicks: 0</div>
+    <h1>click</h1>
+    <p id="saveMessage">the button remembers your clicks</p>
+    <button id="clickButton" aria-label="click"></button>
 </main>
 
+<div id="counter">clicks: 0</div>
+
 <section id="breakScreen">
-  <p class="message">take a break rest your hand</p>
-  <button id="readyButton">I'm ready to continue</button>
+    <p class="message">take a break rest your hand</p>
+    <button id="readyButton">I'm ready to continue</button>
 </section>
 
 <section id="winScreen">
-  <p class="message">was it worth it?</p>
+    <p class="message">was it worth it?</p>
 </section>
 
 <section id="cheatScreen">
-  <h2>CHEATER.</h2>
+    <h2>CHEATER.</h2>
 </section>
 
 <script>
 const SAVE_KEY = "clickGameSavedClicks";
 const WIN_COUNT = 1000000;
-
-function loadClicks() {
-  try {
-    const saved = localStorage.getItem(SAVE_KEY);
-    const n = Number(saved);
-    return saved !== null && Number.isSafeInteger(n) && n >= 0 ? n : 0;
-  } catch {
-    return 0;
-  }
-}
-
-let clicks = loadClicks();
-let enterHeld = false;
-let enterHoldTimer = null;
-let lastClickTime = 0;
-let rapidClicks = 0;
-let cheating = false;
+const BREAK_COUNT = 1000;
 
 const game = document.getElementById("game");
+const counter = document.getElementById("counter");
+const clickButton = document.getElementById("clickButton");
 const breakScreen = document.getElementById("breakScreen");
 const winScreen = document.getElementById("winScreen");
 const cheatScreen = document.getElementById("cheatScreen");
-const counter = document.getElementById("counter");
-const clickButton = document.getElementById("clickButton");
 const readyButton = document.getElementById("readyButton");
 
+function loadClicks() {
+    try {
+        return Math.max(
+            0,
+            Number.parseInt(localStorage.getItem(SAVE_KEY), 10) || 0
+        );
+    } catch {
+        return 0;
+    }
+}
+
+let clicks = loadClicks();
+let cheating = false;
+let enterHeld = false;
+let enterHoldTimer = null;
+let clickTimestamps = [];
+
 function saveClicks() {
-  try {
-    localStorage.setItem(SAVE_KEY, String(clicks));
-  } catch {}
+    try {
+        localStorage.setItem(SAVE_KEY, String(clicks));
+    } catch (error) {
+        console.warn("Could not save clicks.", error);
+    }
 }
 
 function updateCounter() {
-  counter.textContent = "clicks: " + clicks.toLocaleString();
+    counter.textContent = "clicks: " + clicks.toLocaleString();
+}
+
+function hideAllScreens() {
+    game.style.display = "none";
+    breakScreen.style.display = "none";
+    winScreen.style.display = "none";
+    cheatScreen.style.display = "none";
+    counter.style.display = "none";
 }
 
 function showScreen(screen) {
-  game.style.display = "none";
-  breakScreen.style.display = "none";
-  winScreen.style.display = "none";
-  cheatScreen.style.display = "none";
-  screen.style.display = "flex";
-  counter.style.display = "none";
+    hideAllScreens();
+    screen.style.display = "flex";
 }
 
 function showCheater() {
-  cheating = true;
-  clearTimeout(enterHoldTimer);
-  showScreen(cheatScreen);
+    if (cheating) return;
+
+    cheating = true;
+    clearTimeout(enterHoldTimer);
+    enterHeld = false;
+
+    showScreen(cheatScreen);
 }
 
 function registerClick() {
-  if (cheating || game.style.display === "none") return;
+    if (cheating || game.style.display === "none") return;
 
-  const now = Date.now();
+    const now = performance.now();
 
-  // Detect rapid repeated clicks, including keyboard auto-repeat.
-  if (now - lastClickTime < 45) {
-    rapidClicks++;
-  } else {
-    rapidClicks = 0;
-  }
-  lastClickTime = now;
+    // Keep clicks from the last second.
+    clickTimestamps.push(now);
+    clickTimestamps = clickTimestamps.filter(
+        timestamp => now - timestamp < 1000
+    );
 
-  if (rapidClicks >= 8) {
-    showCheater();
-    return;
-  }
+    // More than 100 clicks in one second triggers CHEATER.
+    if (clickTimestamps.length > 100) {
+        showCheater();
+        return;
+    }
 
-  clicks++;
-  saveClicks();
-  updateCounter();
+    clicks++;
+    saveClicks();
+    updateCounter();
 
-  if (clicks >= WIN_COUNT) {
-    showScreen(winScreen);
-  } else if (clicks % 1000 === 0) {
-    showScreen(breakScreen);
-  }
+    // Winning takes priority over the break screen.
+    if (clicks >= WIN_COUNT) {
+        showScreen(winScreen);
+        return;
+    }
+
+    // Stop every 1,000 clicks.
+    if (clicks % BREAK_COUNT === 0) {
+        showScreen(breakScreen);
+    }
 }
 
 clickButton.addEventListener("click", registerClick);
 
-// Holding Enter triggers a cheating screen.
-document.addEventListener("keydown", event => {
-  if (event.key !== "Enter" || event.repeat || cheating) return;
+// Holding Enter for 700 milliseconds triggers CHEATER.
+document.addEventListener("keydown", function(event) {
+    if (event.key !== "Enter" || event.repeat || cheating) return;
 
-  enterHeld = true;
-  enterHoldTimer = setTimeout(() => {
-    if (enterHeld) showCheater();
-  }, 700);
+    // Prevent holding Enter on the button from repeatedly clicking it.
+    if (document.activeElement === clickButton) {
+        event.preventDefault();
+    }
+
+    enterHeld = true;
+
+    enterHoldTimer = setTimeout(function() {
+        if (enterHeld) {
+            showCheater();
+        }
+    }, 700);
 });
 
-document.addEventListener("keyup", event => {
-  if (event.key === "Enter") {
-    enterHeld = false;
-    clearTimeout(enterHoldTimer);
-  }
+document.addEventListener("keyup", function(event) {
+    if (event.key === "Enter") {
+        enterHeld = false;
+        clearTimeout(enterHoldTimer);
+    }
 });
 
-readyButton.addEventListener("click", () => {
-  if (cheating) return;
-  breakScreen.style.display = "none";
-  game.style.display = "flex";
-  counter.style.display = "block";
+// Continue after a break without losing progress.
+readyButton.addEventListener("click", function() {
+    if (cheating) return;
+
+    breakScreen.style.display = "none";
+    game.style.display = "flex";
+    counter.style.display = "block";
+    updateCounter();
 });
 
+// Load saved progress.
 updateCounter();
 
 if (clicks >= WIN_COUNT) {
-  showScreen(winScreen);
-} else if (clicks > 0 && clicks % 1000 === 0) {
-  showScreen(breakScreen);
+    showScreen(winScreen);
+} else if (clicks > 0 && clicks % BREAK_COUNT === 0) {
+    showScreen(breakScreen);
 }
 </script>
 
