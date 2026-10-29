@@ -19,21 +19,19 @@ body {
   justify-content: center;
 }
 
-#game {
-  display: flex;
+#game, #breakScreen, #winScreen, #cheatScreen {
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 25px;
+  text-align: center;
 }
+
+#game { display: flex; }
 
 h1 { margin: 0; font-size: 72px; }
 
-#saveMessage {
-  margin: 0;
-  color: #aaa;
-  font-size: 16px;
-  text-align: center;
-}
+#saveMessage { color: #aaa; }
 
 #clickButton {
   width: 190px;
@@ -57,16 +55,7 @@ h1 { margin: 0; font-size: 72px; }
   font-weight: bold;
 }
 
-#breakScreen, #winScreen {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 25px;
-  text-align: center;
-  padding: 20px;
-}
-
-#breakScreen p, #winScreen p {
+.message {
   font-size: clamp(28px, 5vw, 48px);
   font-weight: bold;
 }
@@ -81,6 +70,9 @@ h1 { margin: 0; font-size: 72px; }
   font-weight: bold;
   cursor: pointer;
 }
+
+#cheatScreen { color: red; }
+#cheatScreen h2 { font-size: clamp(45px, 10vw, 90px); margin: 0; }
 </style>
 </head>
 <body>
@@ -93,12 +85,16 @@ h1 { margin: 0; font-size: 72px; }
 </main>
 
 <section id="breakScreen">
-  <p>take a break rest your hand</p>
+  <p class="message">take a break rest your hand</p>
   <button id="readyButton">I'm ready to continue</button>
 </section>
 
 <section id="winScreen">
-  <p>was it worth it?</p>
+  <p class="message">was it worth it?</p>
+</section>
+
+<section id="cheatScreen">
+  <h2>CHEATER.</h2>
 </section>
 
 <script>
@@ -108,20 +104,24 @@ const WIN_COUNT = 1000000;
 function loadClicks() {
   try {
     const saved = localStorage.getItem(SAVE_KEY);
-    const number = Number(saved);
-    return saved !== null &&
-      Number.isSafeInteger(number) && number >= 0
-      ? number : 0;
+    const n = Number(saved);
+    return saved !== null && Number.isSafeInteger(n) && n >= 0 ? n : 0;
   } catch {
     return 0;
   }
 }
 
 let clicks = loadClicks();
+let enterHeld = false;
+let enterHoldTimer = null;
+let lastClickTime = 0;
+let rapidClicks = 0;
+let cheating = false;
 
 const game = document.getElementById("game");
 const breakScreen = document.getElementById("breakScreen");
 const winScreen = document.getElementById("winScreen");
+const cheatScreen = document.getElementById("cheatScreen");
 const counter = document.getElementById("counter");
 const clickButton = document.getElementById("clickButton");
 const readyButton = document.getElementById("readyButton");
@@ -129,50 +129,89 @@ const readyButton = document.getElementById("readyButton");
 function saveClicks() {
   try {
     localStorage.setItem(SAVE_KEY, String(clicks));
-  } catch {
-    document.getElementById("saveMessage").textContent =
-      "saving unavailable in this browser";
-  }
+  } catch {}
 }
 
 function updateCounter() {
   counter.textContent = "clicks: " + clicks.toLocaleString();
 }
 
-function showWinScreen() {
+function showScreen(screen) {
   game.style.display = "none";
   breakScreen.style.display = "none";
-  winScreen.style.display = "flex";
+  winScreen.style.display = "none";
+  cheatScreen.style.display = "none";
+  screen.style.display = "flex";
+  counter.style.display = "none";
 }
 
-function showBreakScreen() {
-  game.style.display = "none";
-  breakScreen.style.display = "flex";
+function showCheater() {
+  cheating = true;
+  clearTimeout(enterHoldTimer);
+  showScreen(cheatScreen);
 }
 
-clickButton.addEventListener("click", () => {
+function registerClick() {
+  if (cheating || game.style.display === "none") return;
+
+  const now = Date.now();
+
+  // Detect rapid repeated clicks, including keyboard auto-repeat.
+  if (now - lastClickTime < 45) {
+    rapidClicks++;
+  } else {
+    rapidClicks = 0;
+  }
+  lastClickTime = now;
+
+  if (rapidClicks >= 8) {
+    showCheater();
+    return;
+  }
+
   clicks++;
   saveClicks();
   updateCounter();
 
   if (clicks >= WIN_COUNT) {
-    showWinScreen();
+    showScreen(winScreen);
   } else if (clicks % 1000 === 0) {
-    showBreakScreen();
+    showScreen(breakScreen);
+  }
+}
+
+clickButton.addEventListener("click", registerClick);
+
+// Holding Enter triggers a cheating screen.
+document.addEventListener("keydown", event => {
+  if (event.key !== "Enter" || event.repeat || cheating) return;
+
+  enterHeld = true;
+  enterHoldTimer = setTimeout(() => {
+    if (enterHeld) showCheater();
+  }, 700);
+});
+
+document.addEventListener("keyup", event => {
+  if (event.key === "Enter") {
+    enterHeld = false;
+    clearTimeout(enterHoldTimer);
   }
 });
 
 readyButton.addEventListener("click", () => {
+  if (cheating) return;
   breakScreen.style.display = "none";
   game.style.display = "flex";
+  counter.style.display = "block";
 });
 
 updateCounter();
 
 if (clicks >= WIN_COUNT) {
-  showWinScreen();
+  showScreen(winScreen);
 } else if (clicks > 0 && clicks % 1000 === 0) {
-  showBreakScreen();
+  showScreen(breakScreen);
 }
 </script>
 
