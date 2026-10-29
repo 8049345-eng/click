@@ -1,0 +1,180 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>click</title>
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: black;
+  color: white;
+  font-family: Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 25px;
+}
+
+h1 { margin: 0; font-size: 72px; }
+
+#saveMessage {
+  margin: 0;
+  color: #aaa;
+  font-size: 16px;
+  text-align: center;
+}
+
+#clickButton {
+  width: 190px;
+  height: 190px;
+  border: none;
+  border-radius: 50%;
+  background: red;
+  cursor: pointer;
+  box-shadow: 0 10px #790000;
+}
+
+#clickButton:active {
+  transform: translateY(8px);
+  box-shadow: 0 2px #790000;
+}
+
+#counter {
+  position: fixed;
+  bottom: 25px;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+#breakScreen, #winScreen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 25px;
+  text-align: center;
+  padding: 20px;
+}
+
+#breakScreen p, #winScreen p {
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: bold;
+}
+
+#readyButton {
+  border: none;
+  border-radius: 8px;
+  padding: 16px 24px;
+  background: white;
+  color: black;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<main id="game">
+  <h1>click</h1>
+  <p id="saveMessage">the button remembers your clicks</p>
+  <button id="clickButton" aria-label="click"></button>
+  <div id="counter">clicks: 0</div>
+</main>
+
+<section id="breakScreen">
+  <p>take a break rest your hand</p>
+  <button id="readyButton">I'm ready to continue</button>
+</section>
+
+<section id="winScreen">
+  <p>was it worth it?</p>
+</section>
+
+<script>
+const SAVE_KEY = "clickGameSavedClicks";
+const WIN_COUNT = 1000000;
+
+function loadClicks() {
+  try {
+    const saved = localStorage.getItem(SAVE_KEY);
+    const number = Number(saved);
+    return saved !== null &&
+      Number.isSafeInteger(number) && number >= 0
+      ? number : 0;
+  } catch {
+    return 0;
+  }
+}
+
+let clicks = loadClicks();
+
+const game = document.getElementById("game");
+const breakScreen = document.getElementById("breakScreen");
+const winScreen = document.getElementById("winScreen");
+const counter = document.getElementById("counter");
+const clickButton = document.getElementById("clickButton");
+const readyButton = document.getElementById("readyButton");
+
+function saveClicks() {
+  try {
+    localStorage.setItem(SAVE_KEY, String(clicks));
+  } catch {
+    document.getElementById("saveMessage").textContent =
+      "saving unavailable in this browser";
+  }
+}
+
+function updateCounter() {
+  counter.textContent = "clicks: " + clicks.toLocaleString();
+}
+
+function showWinScreen() {
+  game.style.display = "none";
+  breakScreen.style.display = "none";
+  winScreen.style.display = "flex";
+}
+
+function showBreakScreen() {
+  game.style.display = "none";
+  breakScreen.style.display = "flex";
+}
+
+clickButton.addEventListener("click", () => {
+  clicks++;
+  saveClicks();
+  updateCounter();
+
+  if (clicks >= WIN_COUNT) {
+    showWinScreen();
+  } else if (clicks % 1000 === 0) {
+    showBreakScreen();
+  }
+});
+
+readyButton.addEventListener("click", () => {
+  breakScreen.style.display = "none";
+  game.style.display = "flex";
+});
+
+updateCounter();
+
+if (clicks >= WIN_COUNT) {
+  showWinScreen();
+} else if (clicks > 0 && clicks % 1000 === 0) {
+  showBreakScreen();
+}
+</script>
+
+</body>
+</html>
